@@ -6,7 +6,7 @@
         //public int DocNum { get; set; }
         public DateTime DocDate { get; set; }
         public DateTime DocDueDate { get; set; }
-        public int CardCode { get; set; }
+        public string CardCode { get; set; } = "";
         public string CardName { get; set; } = "";
         public decimal DocTotal { get; set; }
         public List<SalesOrderRow> SalesOrderRow { get; set; } = [];

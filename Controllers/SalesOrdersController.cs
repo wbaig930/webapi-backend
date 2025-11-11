@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using webapi_backend.Models;
 using webapi_backend.Services;
 
 namespace webapi_backend.Controllers
@@ -31,6 +32,11 @@ namespace webapi_backend.Controllers
             var order = await _serviceLayer.GetSalesOrderByDocEntryAsync(DocEntry);
             return Ok(order);
         }
-
+        [HttpPost]
+        public async Task<IActionResult> CreateSalesOrder([FromBody] SalesOrderHeader order)
+        {
+            var result = await _serviceLayer.CreateSalesOrderAsync(order);
+            return Ok(result);
+        }
     }
 }
