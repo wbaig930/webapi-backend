@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using webapi_backend.Models;
@@ -7,48 +8,46 @@ namespace webapi_backend.Services
     public class ServiceLayer
     {
         private readonly HttpClient _httpClient;
-        private readonly string _baseUrl = "https://DESKTOP-CC4CPJ3:50000/b1s/v1/";
-        private readonly string _companyDB = "DemoCo";
-        private readonly string _username = "manager";
-        private readonly string _password = "admin";
-        private string _sessionId = "";
+        private readonly IConfiguration _config;
 
-        public string SessionId => _sessionId;
-
-        public ServiceLayer()
+        public ServiceLayer(IConfiguration config, HttpClient httpClient)
         {
-            var handler = new HttpClientHandler();
-            handler.ServerCertificateCustomValidationCallback =
-                (req, cert, chain, errors) => true;
+            _config = config;
+            _httpClient = httpClient;
 
-            _httpClient = new HttpClient(handler)
-            {
-                BaseAddress = new Uri(_baseUrl)
-            };
+            var server = _config["SAP:Server"];
+            _httpClient.BaseAddress = new Uri($"https://{server}:50000/b1s/v1/");
         }
 
         public async Task<bool> LoginAsync()
         {
-            var loginData = new
+            var payload = new
             {
-                CompanyDB = _companyDB,
-                UserName = _username,
-                Password = _password
+                CompanyDB = _config["SAP:CompanyDB"],
+                UserName = _config["SAP:UserName"],
+                Password = _config["SAP:Password"]
             };
-            var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(loginData), System.Text.Encoding.UTF8, "application/json");
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                Encoding.UTF8,
+                "application/json"
+            );
+
             var response = await _httpClient.PostAsync("Login", content);
-            if (response.IsSuccessStatusCode)
-            {
-                var responseContent = await response.Content.ReadAsStringAsync();
-                var jsonDoc = System.Text.Json.JsonDocument.Parse(responseContent);
-                _sessionId = jsonDoc.RootElement.GetProperty("SessionId").GetString() ?? "";
-                return true;
-            }
-            else
-            {
+
+            if (!response.IsSuccessStatusCode)
                 return false;
-            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var sessionId = doc.RootElement.GetProperty("SessionId").GetString();
+
+            _httpClient.DefaultRequestHeaders.Add("Cookie", $"B1SESSION={sessionId}");
+            return true;
         }
+
+
 
         // ---------------------------------------------------Items---------------------------------------------------
 
@@ -96,6 +95,18 @@ namespace webapi_backend.Services
         {
             await LoginAsync();
 
+            //var sapOrder = new
+            //{
+            //    CardCode = order.CardCode,
+            //    DocDate = order.DocDate,
+            //    DocDueDate = order.DocDueDate,
+            //    DocumentLines = order.SalesOrderRow.Select(l => new
+            //    {
+            //        ItemCode = l.ItemCode,
+            //        Quantity = l.Quantity,
+            //        UnitPrice = l.Price
+            //    })
+            //};
             var sapOrder = new
             {
                 CardCode = order.CardCode,
@@ -104,12 +115,14 @@ namespace webapi_backend.Services
                 DocumentLines = order.SalesOrderRow.Select(l => new
                 {
                     ItemCode = l.ItemCode,
-                    Quantity = l.Quantity,
-                    UnitPrice = l.Price
+                    Quantity = l.Quantity > 0 ? l.Quantity : 1,
+                    UnitPrice = l.Price > 0 ? l.Price : 1
                 })
             };
 
+
             var json = JsonSerializer.Serialize(sapOrder);
+            Console.WriteLine(json);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("Orders", content);
