@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Text;
+using System.Text.Json;
 using webapi_backend.Models;
 namespace webapi_backend.Services
 {
@@ -90,6 +92,30 @@ namespace webapi_backend.Services
             var response = await _httpClient.GetAsync($"Orders({docEntry})");
             return await response.Content.ReadAsStringAsync();
         }
-        
+        public async Task<string> CreateSalesOrderAsync(SalesOrderHeader order)
+        {
+            await LoginAsync();
+
+            var sapOrder = new
+            {
+                CardCode = order.CardCode,
+                DocDate = order.DocDate,
+                DocDueDate = order.DocDueDate,
+                DocumentLines = order.SalesOrderRow.Select(l => new
+                {
+                    ItemCode = l.ItemCode,
+                    Quantity = l.Quantity,
+                    UnitPrice = l.Price
+                })
+            };
+
+            var json = JsonSerializer.Serialize(sapOrder);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("Orders", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            return responseBody;
+        }
     }
 }
