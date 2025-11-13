@@ -17,13 +17,28 @@ namespace webapi_backend.Controllers
         }
 
 
+        //[HttpGet("items")]
+        //public async Task<IActionResult> GetItemsAsync()
+        //{
+        //    await _serviceLayer.LoginAsync();
+        //    var items = await _serviceLayer.GetItemsAsync();
+        //    return Ok(items);
+        //}
         [HttpGet("items")]
-        public async Task<IActionResult> GetItemsAsync()
+        public async Task<IActionResult> GetItems()
         {
-            await _serviceLayer.LoginAsync();
-            var items = await _serviceLayer.GetItemsAsync();
-            return Ok(items);
+            try
+            {
+                var items = await _serviceLayer.GetItemsAsync();
+                return Ok(items); // returns JSON array
+            }
+            catch (Exception ex)
+            {
+                // log the exception if needed
+                return StatusCode(500, $"Error fetching items: {ex.Message}");
+            }
         }
+
 
         [HttpGet("items/{itemCode}")]
         public async Task<IActionResult> GetItemByCodeAsync(string itemCode)

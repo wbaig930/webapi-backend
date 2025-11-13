@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Net.Http.Headers;
+﻿using Microsoft.Data.SqlClient;
+using System.Data;
 using System.Text;
 using System.Text.Json;
 using webapi_backend.Models;
+
 namespace webapi_backend.Services
 {
     public class ServiceLayer
@@ -51,10 +52,46 @@ namespace webapi_backend.Services
 
         // ---------------------------------------------------Items---------------------------------------------------
 
-        public async Task<string> GetItemsAsync()
+        //public async Task<string> GetItemsAsync()
+        //{
+        //    var response = await _httpClient.GetAsync("Items?$top=20&$orderby=ItemCode");
+        //    return await response.Content.ReadAsStringAsync();
+        //}
+
+        public async Task<List<dynamic>> GetItemsAsync()
         {
-            var response = await _httpClient.GetAsync("Items?$top=20&$orderby=ItemCode");
-            return await response.Content.ReadAsStringAsync();
+            var items = new List<dynamic>();
+
+            string connectionString = _config.GetConnectionString("SapCompanyDB");
+            string query = @"
+                            SELECT TOP 20 
+                                T0.ItemCode, 
+                                T0.ItemName, 
+                                ISNULL(T1.Price, 0) AS Price
+                            FROM OITM T0
+                            LEFT JOIN ITM1 T1 ON T0.ItemCode = T1.ItemCode AND T1.PriceList = 1
+                            ORDER BY T0.ItemCode";
+
+
+            using (var conn = new SqlConnection(connectionString))
+            using (var cmd = new SqlCommand(query, conn))
+            {
+                await conn.OpenAsync();
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        items.Add(new
+                        {
+                            ItemCode = reader["ItemCode"].ToString(),
+                            ItemName = reader["ItemName"].ToString(),
+                            Price = Convert.ToDecimal(reader["Price"])
+                        });
+                    }
+                }
+            }
+
+            return items;
         }
 
         public async Task<string> GetItemByCodeAsync(string itemCode)
